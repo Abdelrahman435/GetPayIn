@@ -7,6 +7,14 @@ use App\Services\ProductService;
 
 class ProductController extends Controller
 {
+
+    public function addProduct(ProductService $productService)
+    {
+        $data = request()->only(['name', 'price', 'stock']);
+        $product = $productService->create($data);
+        return response()->json($product, 201);
+    }
+
     public function show(Product $product, ProductService $productService)
     {
         return [

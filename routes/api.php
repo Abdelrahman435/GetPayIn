@@ -2,15 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\HoldController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PaymentWebhookController;
-
-Route::get('/products/{product}', [ProductController::class, 'show']);
-
-Route::post('/holds', [HoldController::class, 'store']);
-
-Route::post('/orders', [OrderController::class, 'store']);
-
-Route::post('/payments/webhook', [PaymentWebhookController::class, 'handle']);
+require __DIR__.'/product.php';
+require __DIR__.'/order.php';
+require __DIR__.'/hold.php';
+require __DIR__.'/payment.php';
