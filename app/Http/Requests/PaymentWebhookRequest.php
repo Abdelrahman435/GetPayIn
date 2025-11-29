@@ -6,23 +6,13 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class PaymentWebhookRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return false;
-    }
-
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'order_id'        => ['required', 'exists:orders,id'],
+            'status'          => ['required', 'in:success,failure'],
+            'idempotency_key' => ['required', 'string'],
+            'data'            => ['nullable', 'array'],
         ];
     }
 }

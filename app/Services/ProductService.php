@@ -3,30 +3,28 @@
 namespace App\Services;
 
 use App\Models\Product;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Hold;
+use Carbon\Carbon;
 
 class ProductService
 {
-    protected function cacheKey($request)
+    public function getAvailableStock(Product $product): int
     {
-        return 'products:' . md5(json_encode($request->query()));
+        $activeHolds = Hold::where('product_id', $product->id)
+            ->where('used', false)
+            ->where('expires_at', '>', Carbon::now()) 
+            ->sum('qty');
+
+        return $product->stock - $activeHolds;
     }
 
-    public function list($request)
-{
-    $cacheKey = $this->cacheKey($request);
+    public function increaseStock(Product $product, int $qty): void
+    {
+        $product->increment('stock', $qty);
+    }
 
-    return Cache::store('redis')->remember($cacheKey, 600, function () use ($request) {
-        $products = Product::query()
-            ->when($request->name, fn($q) => $q->where('name', 'like', "%{$request->name}%"))
-            ->when($request->min_price, fn($q) => $q->where('price', '>=', $request->min_price))
-            ->when($request->max_price, fn($q) => $q->where('price', '<=', $request->max_price))
-            ->paginate($request->get('per_page', 10));
-
-        return $products;
-    });
-}
-
-
+    public function decreaseStock(Product $product, int $qty): void
+    {
+        $product->decrement('stock', $qty);
+    }
 }

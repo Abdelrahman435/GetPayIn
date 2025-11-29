@@ -2,26 +2,15 @@
 
 namespace App\Jobs;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
+use App\Models\Hold;
+use Carbon\Carbon;
 
-class ReleaseExpiredHolds implements ShouldQueue
+class ReleaseExpiredHoldsJob extends Job
 {
-    use Queueable;
-
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        //
-    }
-
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
-        //
+        Hold::where('expires_at', '<', Carbon::now())
+            ->where('used', false)
+            ->delete();
     }
 }
