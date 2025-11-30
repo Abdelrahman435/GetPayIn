@@ -22,7 +22,6 @@ class PaymentWebhookController extends Controller
             $request->data ?? []
         );
 
-        // Update order based on payment status
         if ($request->status === 'success') {
             $orderService->markAsPaid($order);
         } else {

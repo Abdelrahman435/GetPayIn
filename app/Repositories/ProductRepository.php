@@ -7,33 +7,44 @@ class ProductRepository
 {
     public function addProduct($data)
     {
-        return DB::insert(
-            "INSERT INTO products (name, stock, price) VALUES (?, ?, ?)",
-            [$data['name'], $data['stock'], $data['price']]
-        );
+        $id = DB::table('products')->insertGetId([
+            'name' => $data['name'],
+            'stock' => $data['stock'],
+            'price' => $data['price'],
+            'available_stock' => $data['stock'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $this->getProductById($id);
     }
 
     public function getProductById($productId)
     {
-        return DB::selectOne(
-            "SELECT * FROM products WHERE id = ?",
-            [$productId]
-        );
+        return DB::table('products')->where('id', $productId)->first();
     }
 
     public function lockProductForUpdate($productId)
     {
-        return DB::selectOne(
-            "SELECT * FROM products WHERE id = ? FOR UPDATE",
-            [$productId]
-        );
+        return DB::table('products')
+            ->where('id', $productId)
+            ->lockForUpdate()
+            ->first();
     }
 
     public function decrementStock($productId, $qty)
     {
         return DB::update(
-            "UPDATE products SET stock = stock - ? WHERE id = ?",
-            [$qty, $productId]
+            "UPDATE products SET stock = stock - ?, available_stock = available_stock - ? WHERE id = ?",
+            [$qty, $qty, $productId]
+        );
+    }
+
+    public function incrementStock($productId, $qty)
+    {
+        return DB::update(
+            "UPDATE products SET stock = stock + ?, available_stock = available_stock + ? WHERE id = ?",
+            [$qty, $qty, $productId]
         );
     }
 
@@ -52,4 +63,3 @@ class ProductRepository
         ", [$productId]);
     }
 }
-

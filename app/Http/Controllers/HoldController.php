@@ -3,20 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateHoldRequest;
-use App\Models\Product;
 use App\Services\HoldService;
 
 class HoldController extends Controller
 {
-    public function store(CreateHoldRequest $request, HoldService $holdService)
+    protected $holds;
+
+    public function __construct(HoldService $holds)
     {
-        $product = Product::findOrFail($request->product_id);
+        $this->holds = $holds;
+    }
 
-        $hold = $holdService->createHold($product, $request->qty);
+    public function store(CreateHoldRequest $request)
+    {
+        try {
+            $hold = $this->holds->createHold(
+                $request->product_id,
+                $request->qty
+            );
 
-        return response()->json([
-            'hold_id' => $hold->id,
-            'expires_at' => $hold->expires_at,
-        ]);
+            return response()->json([
+                'status' => 'success',
+                'data'   => $hold
+            ], 201);
+
+        } catch (\Exception $ex) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $ex->getMessage()
+            ], 422);
+        }
     }
 }

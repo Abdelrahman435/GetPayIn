@@ -10,30 +10,45 @@ use App\Repositories\ProductRepository;
 
 class ProductService
 {
-        public function create(array $data)
+    protected $repo;
+
+    public function __construct(ProductRepository $repo)
     {
-        $product =ProductRepository::addProduct($data);
+        $this->repo = $repo;
+    }
+
+    public function create(array $data)
+    {
+        $product = $this->repo->addProduct($data);
+
         $this->clearCache();
+
         return $product;
     }
 
     public function getAvailableStock(Product $product): int
     {
-        $activeHolds = Hold::where('product_id', $product->id)
-            ->where('used', false)
-            ->where('expires_at', '>', Carbon::now())
-            ->sum('qty');
+        $row = $this->repo->getAvailableStock($product->id);
 
-        return $product->stock - $activeHolds;
+        return $row ? (int) $row->available : 0;
     }
 
     public function increaseStock(Product $product, int $qty): void
     {
-        $product->increment('stock', $qty);
+        $this->repo->incrementStock($product->id, $qty);
+
+        $this->clearCache();
     }
 
     public function decreaseStock(Product $product, int $qty): void
     {
-        $product->decrement('stock', $qty);
+        $this->repo->decrementStock($product->id, $qty);
+
+        $this->clearCache();
+    }
+
+    private function clearCache()
+    {
+        Cache::forget('products_list');
     }
 }

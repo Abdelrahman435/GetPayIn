@@ -4,24 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Services\ProductService;
+use App\Http\Requests\ProductRequest;
 
 class ProductController extends Controller
 {
+    protected $productService;
 
-    public function addProduct(ProductService $productService)
+    public function __construct(ProductService $service)
     {
-        $data = request()->only(['name', 'price', 'stock']);
-        $product = $productService->create($data);
-        return response()->json($product, 201);
+        $this->productService = $service;
     }
 
-    public function show(Product $product, ProductService $productService)
+    public function store(ProductRequest $request)
     {
-        return [
-            'id' => $product->id,
+        $product = $this->productService->create($request->validated());
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Product created successfully',
+            'data'    => $product
+        ], 201);
+    }
+
+    public function show(Product $product)
+    {
+        $availableStock = $this->productService->getAvailableStock($product);
+
+        return response()->json([
+            'id'   => $product->id,
             'name' => $product->name,
-            'price' => $product->price,
-            'stock' => $productService->getAvailableStock($product),
-        ];
+            'price'=> $product->price,
+            'available_stock' => $availableStock,
+        ]);
     }
 }
