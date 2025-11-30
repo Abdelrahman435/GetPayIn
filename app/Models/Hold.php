@@ -33,16 +33,11 @@ class Hold extends Model
 
     public function isExpired(): bool
     {
-        return now()->greaterThan($this->expires_at);
+        return $this->expires_at->isPast();
     }
 
-    public function markAsUsed(): void
+    public function scopeActive($query)
     {
-        $this->update(['used' => true]);
-    }
-
-    public function markAsReleased(): void
-    {
-        $this->product->increaseAvailableStock($this->qty);
+        return $query->where('used', false)->where('expires_at', '>', now());
     }
 }

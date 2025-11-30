@@ -2,39 +2,56 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
-use App\Services\ProductService;
 use App\Http\Requests\ProductRequest;
+use App\Services\ProductService;
+use Illuminate\Http\JsonResponse;
 
 class ProductController extends Controller
 {
-    protected $productService;
+    protected ProductService $productService;
 
-    public function __construct(ProductService $service)
+    public function __construct(ProductService $productService)
     {
-        $this->productService = $service;
+        $this->productService = $productService;
     }
 
-    public function store(ProductRequest $request)
+    public function index(): JsonResponse
     {
-        $product = $this->productService->create($request->validated());
+        $products = $this->productService->getAll();
 
         return response()->json([
-            'status'  => 'success',
+            'success' => true,
+            'data'    => $products
+        ], 200);
+    }
+
+    public function show(ProductRequest $request, $id): JsonResponse
+    {
+        $product = $this->productService->getById($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $product
+        ], 200);
+    }
+
+    public function store(ProductRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $product = $this->productService->add($validated);
+
+        return response()->json([
+            'success' => true,
             'message' => 'Product created successfully',
             'data'    => $product
         ], 201);
-    }
-
-    public function show(Product $product)
-    {
-        $availableStock = $this->productService->getAvailableStock($product);
-
-        return response()->json([
-            'id'   => $product->id,
-            'name' => $product->name,
-            'price'=> $product->price,
-            'available_stock' => $availableStock,
-        ]);
     }
 }

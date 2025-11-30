@@ -4,34 +4,30 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateHoldRequest;
 use App\Services\HoldService;
+use Illuminate\Http\Request;
 
 class HoldController extends Controller
 {
-    protected $holds;
+    private HoldService $service;
 
-    public function __construct(HoldService $holds)
+    public function __construct(HoldService $service)
     {
-        $this->holds = $holds;
+        $this->service = $service;
     }
 
     public function store(CreateHoldRequest $request)
     {
+        $data = $request->validated();
+
         try {
-            $hold = $this->holds->createHold(
-                $request->product_id,
-                $request->qty
-            );
-
-            return response()->json([
-                'status' => 'success',
-                'data'   => $hold
-            ], 201);
-
-        } catch (\Exception $ex) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => $ex->getMessage()
-            ], 422);
+            $hold = $this->service->createHold($data['product_id'], $data['qty'], 120);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
+
+        return response()->json([
+            'hold_id' => $hold->id,
+            'expires_at' => $hold->expires_at->toISOString(),
+        ], 201);
     }
 }

@@ -28,6 +28,11 @@ class Order extends Model
         $this->update(['status' => 'paid']);
     }
 
+    public function isPaid(): bool
+    {
+        return $this->status === 'paid';
+    }
+
     public function markCancelled(): void
     {
         $this->update(['status' => 'cancelled']);

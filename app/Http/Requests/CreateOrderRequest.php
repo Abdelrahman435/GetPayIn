@@ -6,10 +6,12 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CreateOrderRequest extends FormRequest
 {
-    public function rules(): array
+    public function authorize() { return true; }
+
+    public function rules()
     {
         return [
-            'hold_id' => ['required', 'exists:holds,id'],
+            'hold_id' => ['required', 'integer', 'exists:holds,id'],
         ];
     }
 }

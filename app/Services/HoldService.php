@@ -2,87 +2,64 @@
 
 namespace App\Services;
 
-use App\Repositories\HoldRepository;
-use App\Repositories\ProductRepository;
+use App\Models\Hold;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 use App\Jobs\ExpireHoldJob;
+use Illuminate\Support\Facades\Cache;
+use RuntimeException;
 
 class HoldService
 {
-    protected $holds;
-    protected $products;
-
-    public function __construct(HoldRepository $holds, ProductRepository $products)
+    public function createHold(int $productId, int $qty, int $ttlSeconds = 120): Hold
     {
-        $this->holds = $holds;
-        $this->products = $products;
-    }
+        return DB::transaction(function () use ($productId, $qty, $ttlSeconds) {
 
-    public function createHold($productId, $qty)
-    {
-        return DB::transaction(function () use ($productId, $qty) {
+            $product = Product::where('id', $productId)->lockForUpdate()->firstOrFail();
 
-            $product = $this->products->lockProductForUpdate($productId);
-
-            if (!$product) {
-                throw new \Exception("Product not found");
+            if ($product->available_stock < $qty) {
+                throw new RuntimeException('Not enough stock available.');
             }
 
-            $available = $this->products->getAvailableStock($productId)->available;
+            $product->available_stock -= $qty;
+            $product->save();
 
-            if ($available < $qty) {
-                throw new \Exception("Not enough stock available");
-            }
-            $this->products->decrementStock($productId, $qty);
+            Cache::forget("product:{$product->id}:available_stock");
 
-            $expiresAt = Carbon::now()->addMinutes(10);
+            $expiresAt = Carbon::now()->addSeconds($ttlSeconds);
+            $hold = Hold::create([
+                'product_id' => $product->id,
+                'qty'        => $qty,
+                'expires_at' => $expiresAt,
+                'used'       => false,
+            ]);
 
-            $hold = $this->holds->createHold($productId, $qty, $expiresAt);
+            dispatch(new ExpireHoldJob($hold->id))->delay($expiresAt);
 
             return $hold;
-            dispatch(new ExpireHoldJob($hold->id))
-                ->delay(now()->addMinutes(10));
-
-        });
+        }, 5);
     }
 
-    public function validateHold($holdId)
+    public function releaseHold(Hold $hold): bool
     {
-        $hold = $this->holds->getHoldById($holdId);
+        return DB::transaction(function () use ($hold) {
 
-        if (!$hold) {
-            throw new \Exception("Hold not found");
-        }
+            $h = Hold::where('id', $hold->id)->lockForUpdate()->first();
 
-        if ($hold->used) {
-            throw new \Exception("Hold already used");
-        }
+            if (! $h || $h->used) {
+                return false;
+            }
 
-        if (Carbon::parse($hold->expires_at)->isPast()) {
-            throw new \Exception("Hold expired");
-        }
+            $product = Product::where('id', $h->product_id)->lockForUpdate()->first();
+            $product->available_stock += $h->qty;
+            $product->save();
 
-        return $hold;
+            $h->delete();
+
+            Cache::forget("product:{$product->id}:available_stock");
+
+            return true;
+        }, 5);
     }
-
-        public function releaseHold($holdId)
-    {
-        return DB::transaction(function () use ($holdId) {
-
-            $hold = $this->holds->lockHoldForUpdate($holdId);
-
-            if (!$hold) return;
-
-            if ($hold->used == 1) return;
-
-            $this->products->increaseAvailableStock(
-                $hold->product_id,
-                $hold->qty
-            );
-
-            $this->holds->markAsUsed($holdId);
-        });
-    }
-
 }

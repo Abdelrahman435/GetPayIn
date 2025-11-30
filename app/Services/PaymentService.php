@@ -2,30 +2,75 @@
 
 namespace App\Services;
 
-use App\Models\Order;
 use App\Models\PaymentLog;
-use Carbon\Carbon;
-use Exception;
+use App\Models\Order;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class PaymentService
 {
-    public function processPayment(Order $order, string $key, array $payload): string
+    public function handleWebhook(string $idempotencyKey, array $payload, string $status): PaymentLog
     {
-        $log = PaymentLog::firstOrCreate(
-            ['idempotency_key' => $key],
-            ['payload' => $payload]
-        );
+        $now = Carbon::now();
 
-        if ($log->processed_at) {
-            return "Payment already processed (idempotent).";
+        try {
+            $pl = PaymentLog::create([
+                'idempotency_key' => $idempotencyKey,
+                'order_id' => null,
+                'status' => 'processing',
+                'payload' => $payload,
+                'processed_at' => null,
+            ]);
+        } catch (\Throwable $e) {
+            $pl = PaymentLog::find($idempotencyKey);
+            if (! $pl) {
+                throw $e;
+            }
+            if (in_array($pl->status, ['success', 'failed', 'ignored'])) {
+                return $pl;
+            }
         }
 
-        if ($order->status === 'paid') {
-            return "Order already paid.";
-        }
+        return DB::transaction(function () use ($pl, $payload, $status, $now) {
+            $paymentReference = $payload['payment_reference'] ?? null;
+            $order = null;
+            if ($paymentReference) {
+                $order = Order::where('payment_reference', $paymentReference)->lockForUpdate()->first();
+            }
 
-        $log->update(['processed_at' => Carbon::now()]);
+            $pl->payload = $payload;
+            $pl->processed_at = $now;
 
-        return "Payment success.";
+            if (! $order) {
+                $pl->status = $status === 'success' ? 'success' : 'failed';
+                $pl->save();
+                return $pl;
+            }
+
+            $pl->order_id = $order->id;
+
+            if ($status === 'success') {
+                $order->status = 'paid';
+                $order->save();
+
+                $pl->status = 'success';
+                $pl->save();
+            } else {
+                $order->status = 'cancelled';
+                $order->save();
+
+                $hold = $order->hold()->lockForUpdate()->first();
+                if ($hold && ! $hold->used) {
+                }
+                $product = $order->hold->product()->lockForUpdate()->first();
+                $product->available_stock += $order->hold->qty;
+                $product->save();
+
+                $pl->status = 'failed';
+                $pl->save();
+            }
+
+            return $pl;
+        }, 5);
     }
 }

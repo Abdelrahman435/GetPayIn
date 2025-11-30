@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Product extends Model
 {
@@ -31,15 +32,9 @@ class Product extends Model
     }
 
 
-    public function reduceAvailableStock(int $qty): bool
+    public function cachedAvailableStock(): int
     {
-        return $this->where('id', $this->id)
-            ->where('available_stock', '>=', $qty)
-            ->decrement('available_stock', $qty);
-    }
-
-    public function increaseAvailableStock(int $qty): void
-    {
-        $this->increment('available_stock', $qty);
+        $key = "product:{$this->id}:available_stock";
+        return Cache::remember($key, now()->addSeconds(5), fn() => (int)$this->available_stock);
     }
 }
