@@ -3,41 +3,33 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'hold_id',
-        'total_amount',
-        'status',
+        'product_id',
+        'qty',
         'payment_reference',
+        'status',
+        'total_amount',
     ];
 
-    protected $casts = [
-        'total_amount' => 'decimal:2',
-    ];
-
-    public function hold(): BelongsTo
+    public function hold()
     {
         return $this->belongsTo(Hold::class);
     }
 
-    public function markPaid(): void
+    public function product()
     {
-        $this->update(['status' => 'paid']);
+        return $this->belongsTo(Product::class);
     }
 
-    public function isPaid(): bool
+    public function paymentLogs()
     {
-        return $this->status === 'paid';
-    }
-
-    public function markCancelled(): void
-    {
-        $this->update(['status' => 'cancelled']);
-        if (!$this->hold->used) {
-            $this->hold->product->increaseAvailableStock($this->hold->qty);
-        }
+        return $this->hasMany(PaymentLog::class, 'payment_reference', 'payment_reference');
     }
 }

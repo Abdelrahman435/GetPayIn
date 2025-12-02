@@ -10,8 +10,9 @@ class CreateOrderRequest extends FormRequest
 
     public function rules()
     {
-        return [
-            'hold_id' => ['required', 'integer', 'exists:holds,id'],
-        ];
+    return [
+        'hold_id' => 'required|exists:holds,id',
+        'payment_reference' => 'required|string',
+    ];
     }
 }

@@ -3,32 +3,35 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateOrderRequest;
-use App\Services\OrderService;
+use App\Models\Hold;
+use App\Models\Order;
+use App\Services\PaymentWebhookService;
 
 class OrderController extends Controller
 {
-    private OrderService $svc;
-
-    public function __construct(OrderService $svc)
-    {
-        $this->svc = $svc;
-    }
-
     public function store(CreateOrderRequest $request)
     {
-        $holdId = $request->input('hold_id');
+        $validated = $request->validated();
 
-        try {
-            $order = $this->svc->createFromHold($holdId);
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
+        $hold = Hold::with('product')->findOrFail($validated['hold_id']);
+        $paymentReference = $validated['payment_reference'];
+
+        $order = Order::create([
+            'hold_id' => $hold->id,
+            'product_id' => $hold->product_id,
+            'qty'       => $hold->qty,
+            'payment_reference' => $paymentReference,
+            'status' => 'pending',
+            'total_amount' => $hold->qty * $hold->product->price,
+        ]);
+
+        PaymentWebhookService::processPendingFor($order);
+        $order->refresh();
 
         return response()->json([
             'order_id' => $order->id,
-            'status' => $order->status,
             'payment_reference' => $order->payment_reference,
-            'total_amount' => (string)$order->total_amount,
+            'status' => $order->status,
         ], 201);
     }
 }

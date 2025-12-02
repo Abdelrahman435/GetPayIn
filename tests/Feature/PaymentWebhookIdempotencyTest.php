@@ -33,7 +33,7 @@ class PaymentWebhookIdempotencyTest extends TestCase
         ]);
         $webhookResp1->assertStatus(200);
 
-        $orderResp = $this->postJson('/api/orders', ['hold_id' => $holdId]);
+        $orderResp = $this->postJson('/api/orders', ['hold_id' => $holdId, 'payment_reference' => $paymentReference]);
         $orderResp->assertStatus(201);
 
         $webhookResp2 = $this->postJson('/api/payments/webhook', [
@@ -43,6 +43,9 @@ class PaymentWebhookIdempotencyTest extends TestCase
         ]);
         $webhookResp2->assertStatus(200);
 
-        $this->assertDatabaseHas('orders', ['id' => $orderResp->json('order_id'), 'status' => 'paid']);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderResp->json('order_id'),
+            'status' => 'paid'
+        ]);
     }
 }

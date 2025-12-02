@@ -14,6 +14,7 @@ return new class extends Migration
                 ->nullable()
                 ->constrained()
                 ->nullOnDelete();
+            $table->string('payment_reference')->nullable()->index();
             $table->enum('status', [
                 'processing',
                 'success',
