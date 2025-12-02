@@ -5,10 +5,6 @@ namespace Tests\Feature;
 use Tests\TestCase;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Bus;
-use App\Jobs\ExpireHoldJob;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Queue;
 
 class HoldConcurrencyTest extends TestCase
 {

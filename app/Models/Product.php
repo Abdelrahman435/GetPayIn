@@ -31,10 +31,14 @@ class Product extends Model
         return $this->hasManyThrough(Order::class, Hold::class);
     }
 
-
     public function cachedAvailableStock(): int
     {
         $key = "product:{$this->id}:available_stock";
-        return Cache::remember($key, now()->addSeconds(5), fn() => (int)$this->available_stock);
+        return (int) Cache::store('redis')->remember($key, 60, fn() => $this->available_stock);
+    }
+
+    public static function forgetStockCache(int $productId): void
+    {
+        Cache::store('redis')->forget("product:{$productId}:available_stock");
     }
 }

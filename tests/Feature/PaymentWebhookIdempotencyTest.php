@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 use App\Models\Product;
+use App\Models\Order;
+use App\Services\PaymentWebhookService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PaymentWebhookIdempotencyTest extends TestCase
@@ -19,7 +21,10 @@ class PaymentWebhookIdempotencyTest extends TestCase
             'available_stock' => 1,
         ]);
 
-        $holdResp = $this->postJson('/api/holds', ['product_id' => $product->id, 'qty' => 1]);
+        $holdResp = $this->postJson('/api/holds', [
+            'product_id' => $product->id,
+            'qty' => 1
+        ]);
         $holdId = $holdResp->json('hold_id');
 
         $paymentReference = uniqid('pay_');
@@ -33,8 +38,20 @@ class PaymentWebhookIdempotencyTest extends TestCase
         ]);
         $webhookResp1->assertStatus(200);
 
-        $orderResp = $this->postJson('/api/orders', ['hold_id' => $holdId, 'payment_reference' => $paymentReference]);
+        $orderResp = $this->postJson('/api/orders', [
+            'hold_id' => $holdId,
+            'payment_reference' => $paymentReference
+        ]);
         $orderResp->assertStatus(201);
+        $orderId = $orderResp->json('order_id');
+        $order = Order::find($orderId);
+
+        PaymentWebhookService::processPendingFor($order);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => 'paid'
+        ]);
 
         $webhookResp2 = $this->postJson('/api/payments/webhook', [
             'idempotency_key' => $idempotencyKey,
@@ -44,7 +61,7 @@ class PaymentWebhookIdempotencyTest extends TestCase
         $webhookResp2->assertStatus(200);
 
         $this->assertDatabaseHas('orders', [
-            'id' => $orderResp->json('order_id'),
+            'id' => $orderId,
             'status' => 'paid'
         ]);
     }

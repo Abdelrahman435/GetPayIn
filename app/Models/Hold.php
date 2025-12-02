@@ -13,9 +13,11 @@ protected $fillable = [
     'product_id',
     'qty',
     'expires_at',
+    'used',
 ];
 protected $casts = [
     'expires_at' => 'datetime',
+    'used' => 'boolean',
 ];
 
 

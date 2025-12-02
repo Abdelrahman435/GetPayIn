@@ -20,13 +20,12 @@ class PaymentWebhookController extends Controller
             $validated['idempotency_key'],
             $validated['payment_reference'],
             $validated['status'],
-            $request->all()
+            $validated['payload'] ?? []
         );
 
         return response()->json([
             'success' => true,
             'message' => $result['message'],
-            'order_status' => $result['order_status'],
         ], 200);
     }
 }

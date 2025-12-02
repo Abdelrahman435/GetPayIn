@@ -3,15 +3,14 @@
 namespace App\Jobs;
 
 use App\Models\Hold;
-use App\Models\Product;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable; 
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use App\Models\Product;
 
 class ExpireHoldJob implements ShouldQueue
 {
@@ -28,21 +27,27 @@ class ExpireHoldJob implements ShouldQueue
     {
         DB::transaction(function () {
             $hold = Hold::where('id', $this->holdId)->lockForUpdate()->first();
-            if (! $hold) return;
+            if (!$hold) return;
 
-            if ($hold->used) return;
+            if ($hold->used) {
+                Log::info('ExpireHoldJob: hold already used', ['hold' => $hold->id]);
+                return;
+            }
 
-            if ($hold->expires_at->isFuture()) return;
+            if ($hold->expires_at && $hold->expires_at->isFuture()) {
+                Log::info('ExpireHoldJob: hold not yet expired, skipping', ['hold' => $hold->id]);
+                return;
+            }
 
-            $product = Product::where('id', $hold->product_id)->lockForUpdate()->first();
+            $product = $hold->product()->lockForUpdate()->first();
             if ($product) {
                 $product->available_stock += $hold->qty;
                 $product->save();
-
-                Cache::forget("product:{$product->id}:available_stock");
+                Product::forgetStockCache($product->id);
             }
 
             $hold->delete();
+            Log::info('ExpireHoldJob: released hold', ['hold' => $this->holdId]);
         }, 5);
     }
 }

@@ -13,51 +13,46 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 class OrderService
 {
     public function createFromHold(int $holdId): Order
-    {
-        return DB::transaction(function () use ($holdId) {
-            $hold = Hold::where('id', $holdId)->lockForUpdate()->firstOrFail();
+{
+    return DB::transaction(function () use ($holdId) {
 
-            if ($hold->used) {
-                throw new \RuntimeException('Hold already used.');
-            }
+        $hold = Hold::where('id', $holdId)->lockForUpdate()->firstOrFail();
 
-            if ($hold->expires_at->isPast()) {
-                throw new \RuntimeException('Hold expired.');
-            }
+        if ($hold->used) {
+            throw new \RuntimeException('Hold already used.');
+        }
 
-            $product = Product::where('id', $hold->product_id)->lockForUpdate()->firstOrFail();
+        if ($hold->expires_at->isPast()) {
+            throw new \RuntimeException('Hold expired.');
+        }
 
-            $total = bcmul((string)$product->price, (string)$hold->qty, 2);
+        $product = Product::where('id', $hold->product_id)->lockForUpdate()->firstOrFail();
 
-            $order = Order::create([
-                'hold_id' => $hold->id,
-                'total_amount' => $total,
-                'status' => 'pending',
-                'payment_reference' => (string)Str::uuid(),
-            ]);
+        $paymentReference = (string) Str::uuid();
 
-            $hold->used = true;
-            $hold->save();
+        $order = Order::create([
+            'hold_id'           => $hold->id,
+            'product_id'        => $product->id,
+            'qty'               => $hold->qty,
+            'total_amount'      => bcmul((string) $product->price, (string) $hold->qty, 2),
+            'payment_reference' => $paymentReference,
+            'status'            => 'pending',
+        ]);
 
-            $pl = PaymentLog::where('payload->payment_reference', $order->payment_reference)->first();
-            if ($pl) {
-                $pl->order_id = $order->id;
-                $pl->save();
+        $hold->used = true;
+        $hold->save();
 
-                if ($pl->status === 'success') {
-                    $order->status = 'paid';
-                    $order->save();
-                } elseif ($pl->status === 'failed') {
-                    $order->status = 'cancelled';
-                    $order->save();
-                    $product->available_stock += $hold->qty;
-                    $product->save();
-                }
-            }
+        $pendingLogs = PaymentLog::where('payment_reference', $paymentReference)
+            ->whereNull('processed_at')
+            ->lockForUpdate()
+            ->get();
 
-            \Illuminate\Support\Facades\Cache::forget("product:{$product->id}:available_stock");
+        foreach ($pendingLogs as $log) {
+            app(\App\Services\PaymentWebhookService::class)
+                ::applyWebhookToOrder($log);
+        }
 
-            return $order;
-        }, 5);
-    }
+        return $order->refresh();
+    }, 5);
+}
 }
