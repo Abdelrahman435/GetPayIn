@@ -1,66 +1,192 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# GetPayIn Laravel API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A fully working **Payment & Hold Management REST API** built with Laravel.  
+The project supports:
+- Redis caching for product stock
+- Hold system for reserving products before payment
+- Payment Webhooks handling with idempotency
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Requirements
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- PHP 8.2+
+- Composer
+- MySQL
+- Redis
+- Laravel CLI
+- Postman (for testing APIs)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Installation & Setup
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+1. **Clone the repository**
+```bash
+git clone https://github.com/Abdelrahman435/GetPayIn.git
+cd GetPayIn
+```
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+2. **Install dependencies**
+```bash
+composer install
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+3. **Copy & configure `.env`**
+```bash
+cp .env.example .env
+```
 
-## Laravel Sponsors
+Edit `.env` (example values):
+```
+DB_DATABASE=your_db
+DB_USERNAME=root
+DB_PASSWORD=
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+CACHE_DRIVER=redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
 
-### Premium Partners
+FILESYSTEM_DRIVER=public
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+4. **Generate app key**
+```bash
+php artisan key:generate
+```
 
-## Contributing
+5. **Run migrations**
+```bash
+php artisan migrate
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+6. **(Optional) Seed database**
+```bash
+php artisan db:seed
+```
 
-## Code of Conduct
+7. **Storage link for product images**
+```bash
+php artisan storage:link
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+8. **Clear caches (recommended)**
+```bash
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+```
 
-## Security Vulnerabilities
+9. **Start server**
+```bash
+php artisan serve
+```
+Default: `http://localhost:8000`
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
+
+## API Overview
+
+### Products & Stock
+- `GET /api/products/{id}` → Get single product
+- `POST /api/products` → Create product
+
+
+### Holds
+- `POST /api/holds` → Create a hold for a product Holds automatically expire after TTL or can be released manually.
+
+### Orders & Payments
+- `POST /api/orders` → Create order from a hold
+- `POST /api/payments/webhook` → Payment webhook endpoint Payment webhooks are idempotent and safe to receive before or after order creation.
+
+
+---
+
+## Caching
+
+- Redis is used to cache product available_stock.
+- Cache key: product:{id}:available_stock 
+- Cache is cleared automatically on stock update or hold release
+
+`.env` sample for Redis:
+```env
+CACHE_DRIVER=redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+```
+
+---
+
+## ERD (Entity Relationship Diagram)
+
+erDiagram
+
+    USERS {
+        int id PK
+        string name
+        string email
+        string password
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PRODUCTS {
+        int id PK
+        string name
+        decimal price
+        int stock
+        int available_stock
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    HOLDS {
+        int id PK
+        int product_id FK
+        int qty
+        bool used
+        timestamp expires_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ORDERS {
+        int id PK
+        int hold_id FK
+        string payment_reference
+        enum status
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PAYMENT_LOGS {
+        string idempotency_key PK
+        int order_id FK
+        string payment_reference
+        enum status
+        json payload
+        timestamp processed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PRODUCTS ||--o{ HOLDS : "reserved by"
+    HOLDS ||--o{ ORDERS : "creates"
+    ORDERS ||--o{ PAYMENT_LOGS : "logs"
+
+
+## Notes & Assumptions
+
+- Holds reduce `available_stock` and automatically release on expiration or failed payment.
+- Payment webhooks are idempotent and can arrive before or after order creation.
+- Stock caching uses Redis for fast reads.
+- Redis is optional but recommended for caching.
+
+- Use `PaymentWebhookService::processPendingFor($order)` to handle any pending webhooks after creating an order.
+
+---
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT
