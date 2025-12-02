@@ -123,15 +123,6 @@ REDIS_PORT=6379
 ```mermaid
 erDiagram
 
-    USERS {
-        int id PK
-        string name
-        string email
-        string password
-        timestamp created_at
-        timestamp updated_at
-    }
-
     PRODUCTS {
         int id PK
         string name
