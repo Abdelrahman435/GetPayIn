@@ -82,6 +82,10 @@ php artisan view:clear
 ```bash
 php artisan serve
 ```
+10. **To Testing**
+```bash
+php artisan test --testdox
+```
 Default: `http://localhost:8000`
 
 ---
