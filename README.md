@@ -120,6 +120,7 @@ REDIS_PORT=6379
 
 ## ERD (Entity Relationship Diagram)
 
+```mermaid
 erDiagram
 
     USERS {
@@ -174,7 +175,7 @@ erDiagram
     PRODUCTS ||--o{ HOLDS : "reserved by"
     HOLDS ||--o{ ORDERS : "creates"
     ORDERS ||--o{ PAYMENT_LOGS : "logs"
-
+```
 
 ## Notes & Assumptions
 
